@@ -1,0 +1,116 @@
+# --------------------------------------------#
+INDICE DE GINI Y CURVA DE LOREZ
+#---------------------------------------------#
+
+#1. importar la base de datos: enaho:
+library(haven)
+sumaria_2021 <- read_dta("D:/EconomymanuR/s.indice_gini/sumaria-2021.dta")
+View(sumaria_2021)  
+
+# hablemos sobre el ubigeo:
+
+str(sumaria_2021$ubigeo) #**aclarar el ubigeo .....*
+
+sumaria_2021$departamento<-substring(sumaria_2021$ubigeo,1,2) 
+head(sumaria_2021$departamento)
+class(sumaria_2021$departamento)
+
+#**transformarlo con mode a numerico..con mode*
+
+mode(sumaria_2021$departamento)<-"numeric"  
+class(sumaria_2021$departamento)   #** ahora ya es numerico # ahora convertir a factor*
+
+#2. generar la variable departamentos: 
+
+sumaria_2021$departamento<-factor(sumaria_2021$departamento,
+                                  levels = c(1:25),
+                                  labels = c("AMAZONAS", "ANCASH", "APURIMAC", 
+                                             "AREQUIPA", "AYACUCHO", "CAJAMARCA", 
+                                             "CALLAO", "CUSCO", "HUANCAVELICA", 
+                                             "HUANUCO", "ICA", "JUNIN","LA LIBERTAD", 
+                                             "LAMBAYEQUE", "LIMA", "LORETO",
+                                             "MADRE DE DIOS", "MOQUEGUA", "PASCO", 
+                                             "PIURA", "PUNO", "SAN MARTIN", "TACNA", 
+                                             "TUMBES", "UCAYALI")) 
+
+table(sumaria_2021$departamento)
+
+#3. vamos a generar la variable deseada:ingreso por persona
+
+sumaria_2021$ingenper<-sumaria_2021$inghog2d/12/sumaria_2021$mieperho
+
+# calcular el indice de gini a nivel naconal:
+
+sumaria_2021$facpob<-sumaria_2021$factor07*sumaria_2021$mieperho
+library(survey)
+diseño<-svydesign(id=~conglome,strata=~estrato,weight=~facpob,
+                  data=sumaria_2021,nest=T)
+
+# almacenar el diseño completo:
+
+library(convey)
+
+diseño<-convey_prep(diseño)
+svygini(~ingenper,design = diseño)
+
+# la curva de lorenz a nivel nacional: 
+
+par(bg="yellow",col.axis="blue",font.main=4,
+    font.axis=4,font.lab=4,lty=3)
+svylorenz( ~ingenper , diseño, seq(0,1,.05),alpha=.01 )
+title(main="La curva de lorenz 2021")
+mtext("El caso peruano", side = 3)
+version
+
+# la curva de lorenz con gglorenz:
+
+library(ggplot2)
+library(gglorenz)
+library(ggthemes)
+
+ggplot(sumaria_2021, aes(ingenper),colour="#FF9999") +
+  stat_lorenz()
+
+ggplot(sumaria_2021, aes(ingenper)) + labs(title = "Curva de Lorenz",subtitle ="El caso peruano")+
+  stat_lorenz(colour="#FF9999")+
+  geom_abline() +
+  theme_grey() +
+  theme(title = element_text(face = "bold", colour = "blue",size=12),
+        axis.text = element_text(colour = "blue", vjust = 0.5),
+        panel.background = element_rect(fill = "lightblue"))
+ggsave("output.pdf") 
+
+
+# indice de gini por departamento
+
+library(dplyr)
+library(flextable)
+library(flextable)
+
+sumaria_2021 %>% select(c(departamento,ingenper)) %>%
+  group_by(departamento) %>%
+  summarize(svygini(~ingenper,design = diseño)) %>% flextable()
+
+# para un solo departamento : Amazonas
+
+m1<-sumaria_2021[sumaria_2021$departamento=="AMAZONAS",]
+d<-svydesign(id=~conglome,strata=~estrato,weight=~facpob,
+             data=m1,nest=T)
+d<-convey_prep(d)
+svygini(~ingenper,design = d)
+
+table(sumaria_2021$departamento)
+levels(sumaria_2021$departamento)
+
+# Para todos los departamentos:
+
+# almacenar el diseño completo:
+
+library(convey)
+
+diseño<-convey_prep(diseño)
+svygini(~ingenper,design = diseño)
+
+
+
+
